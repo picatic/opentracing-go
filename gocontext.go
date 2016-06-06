@@ -10,8 +10,8 @@ const (
 )
 
 
-// ContextWithSpan returns a new `context.Context` that holds a reference to
-// the given `Span`.
+// ContextWithTracer returns a new `context.Context` that holds a reference to
+// the given `Tracer`.
 func ContextWithTracer(ctx context.Context, tracer Tracer) context.Context {
 	return context.WithValue(ctx, tracerKey, tracer)
 }
@@ -25,8 +25,6 @@ func TracerFromContext(ctx context.Context) Tracer {
 	}
 	return nil
 }
-
-
 
 // ContextWithSpan returns a new `context.Context` that holds a reference to
 // the given `Span`.
@@ -59,8 +57,13 @@ func SpanFromContext(ctx context.Context) Span {
 //        ...
 //    }
 func StartSpanFromContext(ctx context.Context, operationName string) (Span, context.Context) {
+	var tracer Tracer
 	parent := SpanFromContext(ctx)
-	tracer := TracerFromContext(ctx)
+	if parent != nil {
+		tracer = parent.Tracer()
+	} else {
+		tracer = TracerFromContext(ctx)
+	}
 	span := tracer.StartSpanWithOptions(StartSpanOptions{
 		OperationName: operationName,
 		Parent:        parent,

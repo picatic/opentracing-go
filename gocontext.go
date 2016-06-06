@@ -2,20 +2,36 @@ package opentracing
 
 import "golang.org/x/net/context"
 
-type contextKey struct{}
+type contextKey int
 
-var activeSpanKey = contextKey{}
+const (
+	tracerKey  contextKey = iota
+	activeSpanKey
+)
+
+
+// ContextWithSpan returns a new `context.Context` that holds a reference to
+// the given `Span`.
+func ContextWithTracer(ctx context.Context, tracer Tracer) context.Context {
+	return context.WithValue(ctx, tracerKey, tracer)
+}
+
+// TracerFromContext returns the `Tracer` previously associated with `ctx`, or
+// `nil` if no such `Tracer` could be found.
+func TracerFromContext(ctx context.Context) Tracer {
+	val := ctx.Value(tracerKey)
+	if Tracer, ok := val.(Tracer); ok {
+		return Tracer
+	}
+	return nil
+}
+
+
 
 // ContextWithSpan returns a new `context.Context` that holds a reference to
 // the given `Span`.
 func ContextWithSpan(ctx context.Context, span Span) context.Context {
 	return context.WithValue(ctx, activeSpanKey, span)
-}
-
-// BackgroundContextWithSpan is a convenience wrapper around
-// `ContextWithSpan(context.BackgroundContext(), ...)`.
-func BackgroundContextWithSpan(span Span) context.Context {
-	return context.WithValue(context.Background(), activeSpanKey, span)
 }
 
 // SpanFromContext returns the `Span` previously associated with `ctx`, or
@@ -43,12 +59,8 @@ func SpanFromContext(ctx context.Context) Span {
 //        ...
 //    }
 func StartSpanFromContext(ctx context.Context, operationName string) (Span, context.Context) {
-	return startSpanFromContextWithTracer(ctx, operationName, GlobalTracer())
-}
-
-// startSpanFromContextWithTracer is factored out for testing purposes.
-func startSpanFromContextWithTracer(ctx context.Context, operationName string, tracer Tracer) (Span, context.Context) {
 	parent := SpanFromContext(ctx)
+	tracer := TracerFromContext(ctx)
 	span := tracer.StartSpanWithOptions(StartSpanOptions{
 		OperationName: operationName,
 		Parent:        parent,
